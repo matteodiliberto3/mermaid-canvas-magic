@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import mermaid from "mermaid";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, Copy, FileText, Check, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { Download, Copy, FileText, Check } from "lucide-react";
 import { toast } from "sonner";
+import { InteractiveMermaidPreview } from "./InteractiveMermaidPreview";
 
 mermaid.initialize({
   startOnLoad: false,
@@ -161,54 +161,12 @@ export const MermaidEditor = ({ initialCode = defaultCode }: MermaidEditorProps)
               </div>
             </div>
           ) : svg ? (
-            <TransformWrapper
-              initialScale={1}
-              minScale={0.1}
-              maxScale={5}
-              centerOnInit
-              wheel={{ step: 0.1 }}
-              doubleClick={{ mode: "reset" }}
-            >
-              {({ zoomIn, zoomOut, resetTransform }) => (
-                <>
-                  <div className="absolute top-4 right-4 z-10 flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => zoomIn()}
-                      className="bg-background/80 backdrop-blur-sm"
-                    >
-                      <ZoomIn className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => zoomOut()}
-                      className="bg-background/80 backdrop-blur-sm"
-                    >
-                      <ZoomOut className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => resetTransform()}
-                      className="bg-background/80 backdrop-blur-sm"
-                    >
-                      <Maximize2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <TransformComponent
-                    wrapperClass="!w-full !h-full"
-                    contentClass="!w-full !h-full flex items-center justify-center"
-                  >
-                    <div
-                      dangerouslySetInnerHTML={{ __html: svg }}
-                      className="select-none"
-                    />
-                  </TransformComponent>
-                </>
-              )}
-            </TransformWrapper>
+            <InteractiveMermaidPreview 
+              svg={svg} 
+              onPositionsChange={(positions) => {
+                console.log('Posizioni aggiornate:', positions);
+              }}
+            />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <p className="text-muted-foreground">
