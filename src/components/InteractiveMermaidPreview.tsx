@@ -39,19 +39,41 @@ export const InteractiveMermaidPreview = ({
     const svgElement = containerRef.current.querySelector('svg');
     if (!svgElement) return;
 
-    // Make nodes draggable
-    const nodes = svgElement.querySelectorAll('.node, .nodeLabel, [class*="node"]');
+    // Find all draggable elements based on diagram type
+    // Support: flowcharts, ER diagrams, sequence diagrams, class diagrams, etc.
+    const draggableSelectors = [
+      '.node',           // Flowchart nodes
+      '.nodeLabel',      // Node labels
+      '[class*="node"]', // Any class containing "node"
+      '.entity',         // ER diagram entities
+      '.er',             // ER elements
+      '[id*="entity"]',  // ER entity IDs
+      '.actor',          // Sequence diagram actors
+      '.participant',    // Participants
+      '.classGroup',     // Class diagram classes
+      '[class*="cluster"]', // Clusters/subgraphs
+    ];
     
-    nodes.forEach((node) => {
-      const element = node as SVGElement;
-      
-      // Find the parent group that contains the actual node
+    const elements = svgElement.querySelectorAll(draggableSelectors.join(', '));
+    
+    elements.forEach((element) => {
+      // Find the parent group (g element) that should be draggable
       let nodeGroup: Element | null = element;
-      while (nodeGroup && nodeGroup.tagName !== 'g' && nodeGroup.parentElement) {
-        nodeGroup = nodeGroup.parentElement;
+      
+      // For ER diagrams and some types, we want the closest g element
+      if (nodeGroup.tagName !== 'g') {
+        nodeGroup = nodeGroup.closest('g');
       }
       
       if (!nodeGroup || !(nodeGroup instanceof SVGElement)) return;
+
+      // Skip if this is already processed or if it's part of edges/lines
+      if (nodeGroup.hasAttribute('data-draggable-processed')) return;
+      if (nodeGroup.classList.contains('edgePath') || 
+          nodeGroup.classList.contains('edgeLabel') ||
+          nodeGroup.classList.contains('relation')) return;
+
+      nodeGroup.setAttribute('data-draggable-processed', 'true');
 
       // Extract node ID from class or other attributes
       const nodeId = extractNodeId(nodeGroup);
@@ -63,27 +85,55 @@ export const InteractiveMermaidPreview = ({
         applyTransform(nodeGroup, savedPosition.offset);
       }
 
-      // Add visual indicator for drag mode
+      // Add visual indicator for drag mode - make it always draggable
       if (isDragMode) {
         nodeGroup.style.cursor = 'move';
-        nodeGroup.style.opacity = '0.8';
+        nodeGroup.style.opacity = '0.9';
+        // Add a subtle outline to show it's draggable
+        const firstChild = nodeGroup.querySelector('rect, circle, polygon, path');
+        if (firstChild instanceof SVGElement) {
+          firstChild.style.strokeWidth = '2';
+          firstChild.style.stroke = 'hsl(var(--primary))';
+        }
       } else {
-        nodeGroup.style.cursor = 'default';
+        nodeGroup.style.cursor = 'grab';
         nodeGroup.style.opacity = '1';
+        const firstChild = nodeGroup.querySelector('rect, circle, polygon, path');
+        if (firstChild instanceof SVGElement) {
+          firstChild.style.strokeWidth = '';
+          firstChild.style.stroke = '';
+        }
       }
     });
   }, [svg, nodePositions, isDragMode]);
 
   const extractNodeId = (element: SVGElement): string | null => {
     // Try to extract ID from various attributes
-    const classNames = element.getAttribute('class') || '';
     const id = element.getAttribute('id') || '';
+    if (id) return id;
     
-    // Look for text content as identifier
-    const textElement = element.querySelector('text');
-    const textContent = textElement?.textContent?.trim() || '';
+    // Look for text content as identifier (works for ER entities and flowchart nodes)
+    const textElements = element.querySelectorAll('text');
+    const textContent = Array.from(textElements)
+      .map(t => t.textContent?.trim())
+      .filter(Boolean)
+      .join('-') || '';
     
-    return id || textContent || classNames.split(' ')[0] || null;
+    if (textContent) return textContent;
+    
+    // Fallback to class names
+    const classNames = element.getAttribute('class') || '';
+    const firstClass = classNames.split(' ')[0];
+    
+    if (firstClass) return firstClass;
+    
+    // Last resort: generate a unique ID based on position
+    if (element instanceof SVGGraphicsElement) {
+      const bbox = element.getBBox();
+      return `node-${Math.round(bbox.x)}-${Math.round(bbox.y)}`;
+    }
+    
+    return `node-${Date.now()}`;
   };
 
   const getCurrentTransform = (element: SVGElement): Position => {
@@ -115,18 +165,32 @@ export const InteractiveMermaidPreview = ({
 
     const target = e.target as Element;
     
-    // Find the node group
+    // Find the draggable node group
     let nodeGroup: Element | null = target;
-    while (nodeGroup && nodeGroup.tagName !== 'g' && nodeGroup.parentElement) {
+    
+    // Look for the parent g element with data-draggable-processed
+    while (nodeGroup && nodeGroup.parentElement) {
+      if (nodeGroup.tagName === 'g' && nodeGroup.hasAttribute('data-draggable-processed')) {
+        break;
+      }
       nodeGroup = nodeGroup.parentElement;
     }
 
     if (!nodeGroup || !(nodeGroup instanceof SVGElement)) return;
+    if (!nodeGroup.hasAttribute('data-draggable-processed')) return;
+
+    // Skip if clicking on edges or relations
+    if (nodeGroup.classList.contains('edgePath') || 
+        nodeGroup.classList.contains('edgeLabel') ||
+        nodeGroup.classList.contains('relation')) return;
 
     const nodeId = extractNodeId(nodeGroup);
     if (!nodeId) return;
 
     const currentTransform = getCurrentTransform(nodeGroup);
+    
+    // Change cursor to grabbing
+    nodeGroup.style.cursor = 'grabbing';
 
     setDraggingNode({
       element: nodeGroup,
@@ -156,6 +220,9 @@ export const InteractiveMermaidPreview = ({
 
   const handleMouseUp = () => {
     if (!draggingNode) return;
+
+    // Reset cursor
+    draggingNode.element.style.cursor = isDragMode ? 'move' : 'grab';
 
     const finalTransform = getCurrentTransform(draggingNode.element);
     
