@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { MermaidEditor } from "@/components/MermaidEditor";
+import Editor from "@monaco-editor/react";
+import { MermaidFlowEditor } from "@/components/MermaidFlowEditor";
 import { TemplateSelector } from "@/components/TemplateSelector";
 import { Code2 } from "lucide-react";
 
+const defaultCode = `graph TD
+  A[Start]-->B[Process]
+  B-->C[End]`;
+
 const Index = () => {
-  const [currentCode, setCurrentCode] = useState("");
+  const [currentCode, setCurrentCode] = useState(defaultCode);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
@@ -16,21 +21,38 @@ const Index = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Mermaid Live Editor
+                Mermaid Visual Editor
               </h1>
               <p className="text-sm text-muted-foreground">
-                Crea e visualizza diagrammi in tempo reale
+                Crea e modifica diagrammi in modo visuale
               </p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto">
-        <div className="py-4 px-4">
+      <main className="container mx-auto p-4">
+        <div className="mb-4">
           <TemplateSelector onSelectTemplate={setCurrentCode} />
         </div>
-        <MermaidEditor key={currentCode} initialCode={currentCode} />
+        
+        <div className="grid grid-cols-2 gap-4 h-[calc(100vh-200px)]">
+          <div className="rounded-lg border border-border overflow-hidden">
+            <Editor
+              height="100%"
+              defaultLanguage="markdown"
+              value={currentCode}
+              onChange={(value) => setCurrentCode(value || '')}
+              theme="vs-dark"
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+              }}
+            />
+          </div>
+          
+          <MermaidFlowEditor code={currentCode} onCodeChange={setCurrentCode} />
+        </div>
       </main>
     </div>
   );
