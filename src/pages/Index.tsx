@@ -1,8 +1,7 @@
-import { useState } from "react";
-import Editor from "@monaco-editor/react";
-import { MermaidFlowEditor } from "@/components/MermaidFlowEditor";
+import { MermaidEditor } from "@/components/MermaidEditor";
 import { TemplateSelector } from "@/components/TemplateSelector";
 import { Code2 } from "lucide-react";
+import { useState } from "react";
 
 const defaultCode = `graph TD
   A[Start]-->B[Process]
@@ -31,28 +30,12 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto p-4">
-        <div className="mb-4">
+      <main className="container mx-auto">
+        <div className="mb-4 px-4 pt-4">
           <TemplateSelector onSelectTemplate={setCurrentCode} />
         </div>
         
-        <div className="grid grid-cols-2 gap-4 h-[calc(100vh-200px)]">
-          <div className="rounded-lg border border-border overflow-hidden">
-            <Editor
-              height="100%"
-              defaultLanguage="markdown"
-              value={currentCode}
-              onChange={(value) => setCurrentCode(value || '')}
-              theme="vs-dark"
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-              }}
-            />
-          </div>
-          
-          <MermaidFlowEditor code={currentCode} onCodeChange={setCurrentCode} />
-        </div>
+        <MermaidEditor initialCode={currentCode} />
       </main>
     </div>
   );
