@@ -31,6 +31,10 @@ export const MermaidEditor = ({ initialCode = defaultCode }: MermaidEditorProps)
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setCode(initialCode);
+  }, [initialCode]);
+
+  useEffect(() => {
     renderDiagram();
   }, [code]);
 
