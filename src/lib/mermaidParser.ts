@@ -17,38 +17,75 @@ export const parseMermaidCode = (code: string): { nodes: MermaidNode[], edges: M
   
   const lines = code.split('\n').map(l => l.trim()).filter(Boolean);
   
-  lines.forEach(line => {
-    // Skip directive lines
-    if (line.startsWith('graph') || line.startsWith('flowchart') || line.startsWith('erDiagram')) return;
+  // Detect diagram type
+  const isErDiagram = lines.some(l => l.startsWith('erDiagram'));
+  
+  if (isErDiagram) {
+    // Parse ER Diagram
+    let currentEntity = '';
     
-    // Parse edges: A-->B, A---|Label|-->B
-    const edgeMatch = line.match(/(\w+)\s*(-{1,2}>?|\|.*?\|)\s*(\w+)/);
-    if (edgeMatch) {
-      const [, source, connection, target] = edgeMatch;
-      edges.push({ source, target });
+    lines.forEach(line => {
+      if (line.startsWith('erDiagram') || line.startsWith('%%')) return;
       
-      // Ensure nodes exist
-      if (!nodes.find(n => n.id === source)) {
-        nodes.push({ id: source, label: source });
+      // Parse entity definition: EntityName {
+      const entityMatch = line.match(/^(\w+)\s*\{/);
+      if (entityMatch) {
+        currentEntity = entityMatch[1];
+        if (!nodes.find(n => n.id === currentEntity)) {
+          nodes.push({ id: currentEntity, label: currentEntity, type: 'entity' });
+        }
+        return;
       }
-      if (!nodes.find(n => n.id === target)) {
-        nodes.push({ id: target, label: target });
+      
+      // Parse ER relationships: Entity1 ||--o{ Entity2 : "label"
+      const erRelMatch = line.match(/(\w+)\s+([|o}]{2}--[o|{]{2})\s+(\w+)\s*:\s*"([^"]+)"/);
+      if (erRelMatch) {
+        const [, source, , target, label] = erRelMatch;
+        edges.push({ source, target, label });
+        
+        // Ensure entities exist
+        if (!nodes.find(n => n.id === source)) {
+          nodes.push({ id: source, label: source, type: 'entity' });
+        }
+        if (!nodes.find(n => n.id === target)) {
+          nodes.push({ id: target, label: target, type: 'entity' });
+        }
       }
-      return;
-    }
-    
-    // Parse node definitions: A[Label]
-    const nodeMatch = line.match(/(\w+)\[([^\]]+)\]/);
-    if (nodeMatch) {
-      const [, id, label] = nodeMatch;
-      const existing = nodes.find(n => n.id === id);
-      if (existing) {
-        existing.label = label;
-      } else {
-        nodes.push({ id, label });
+    });
+  } else {
+    // Parse Flowchart/Graph
+    lines.forEach(line => {
+      if (line.startsWith('graph') || line.startsWith('flowchart')) return;
+      
+      // Parse edges: A-->B, A---|Label|-->B
+      const edgeMatch = line.match(/(\w+)\s*(-{1,2}>?|\|.*?\|)\s*(\w+)/);
+      if (edgeMatch) {
+        const [, source, connection, target] = edgeMatch;
+        edges.push({ source, target });
+        
+        // Ensure nodes exist
+        if (!nodes.find(n => n.id === source)) {
+          nodes.push({ id: source, label: source });
+        }
+        if (!nodes.find(n => n.id === target)) {
+          nodes.push({ id: target, label: target });
+        }
+        return;
       }
-    }
-  });
+      
+      // Parse node definitions: A[Label]
+      const nodeMatch = line.match(/(\w+)\[([^\]]+)\]/);
+      if (nodeMatch) {
+        const [, id, label] = nodeMatch;
+        const existing = nodes.find(n => n.id === id);
+        if (existing) {
+          existing.label = label;
+        } else {
+          nodes.push({ id, label });
+        }
+      }
+    });
+  }
   
   return { nodes, edges };
 };
